@@ -1,0 +1,72 @@
+@BackendGrenishop_HostAddress = http://localhost:5240
+
+GET {{BackendGrenishop_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+@baseUrl = https://localhost:7001
+
+### Créer une entreprise
+POST {{baseUrl}}/api/Entreprises
+Content-Type: application/json
+
+{
+    "nom_Entreprise": "Grenishop"
+}
+
+### Obtenir toutes les entreprises
+GET {{baseUrl}}/api/Entreprises
+
+### Obtenir une entreprise spécifique
+GET {{baseUrl}}/api/Entreprises/1
+
+### Mettre à jour une entreprise
+PUT {{baseUrl}}/api/Entreprises/1
+Content-Type: application/json
+
+{
+    "entrepriseID": 1,
+    "nom_Entreprise": "Grenishop Updated"
+}
+
+### Supprimer une entreprise
+DELETE {{baseUrl}}/api/Entreprises/1
+
+### Créer un produit
+POST {{baseUrl}}/api/Produits
+Content-Type: application/json
+
+{
+    "nom": "iPhone 13",
+    "etat": "Neuf",
+    "entrepriseID": 1,
+    "nombre_Neuf": 10,
+    "nombre_Occasion": 5,
+    "prix_Neuf": 999.99,
+    "prix_Occasion": 799.99
+}
+
+### Obtenir tous les produits
+GET {{baseUrl}}/api/Produits
+
+### Obtenir un produit spécifique
+GET {{baseUrl}}/api/Produits/1
+
+### Mettre à jour un produit
+PUT {{baseUrl}}/api/Produits/1
+Content-Type: application/json
+
+{
+    "produitID": 1,
+    "nom": "iPhone 13 Pro",
+    "etat": "Neuf",
+    "entrepriseID": 1,
+    "nombre_Neuf": 15,
+    "nombre_Occasion": 8,
+    "prix_Neuf": 1099.99,
+    "prix_Occasion": 899.99
+}
+
+### Supprimer un produit
+DELETE {{baseUrl}}/api/Produits/1
