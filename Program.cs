@@ -20,13 +20,12 @@ builder.Services.AddSwaggerGen(c =>
 // Configuration CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
+    options.AddPolicy("CorsPolicy",
+        builder => builder
+            .WithOrigins("http://localhost:3000") // <- ton frontend local
                    .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
+                   .AllowAnyHeader()
+            .AllowCredentials());
 });
 
 builder.Services.AddControllers();
@@ -43,14 +42,14 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
-    });
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
+});
 }
 
 // Activer CORS avant les autres middlewares
-app.UseCors("AllowAll");
+app.UseCors("CorsPolicy");
 
 // Désactiver la redirection HTTPS
 // app.UseHttpsRedirection();
