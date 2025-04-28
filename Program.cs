@@ -23,10 +23,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll",
         builder =>
         {
-            builder.SetIsOriginAllowed(origin => true)
+            builder.AllowAnyOrigin()
                    .AllowAnyMethod()
-                   .AllowAnyHeader()
-                   .AllowCredentials();
+                   .AllowAnyHeader();
         });
 });
 
@@ -41,16 +40,20 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-    app.UseSwagger();
-app.UseSwaggerUI(c =>
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
+    });
+}
 
 // Activer CORS avant les autres middlewares
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+// Désactiver la redirection HTTPS
+// app.UseHttpsRedirection();
 
 // Appliquer les migrations automatiquement
 try
