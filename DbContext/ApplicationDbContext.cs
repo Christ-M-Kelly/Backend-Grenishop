@@ -11,6 +11,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
 
     public DbSet<Entreprise> Entreprises { get; set; }
     public DbSet<Produit> Produits { get; set; }
+    public DbSet<Compte> Comptes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
