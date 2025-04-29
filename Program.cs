@@ -50,14 +50,28 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 var app = builder.Build();
 
+// Ajouter des logs pour le débogage
+Console.WriteLine("Environnement : " + app.Environment.EnvironmentName);
+Console.WriteLine("URL de l'application : " + builder.Configuration["ASPNETCORE_URLS"]);
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    Console.WriteLine("Mode développement activé");
     app.UseSwagger();
-app.UseSwaggerUI(c =>
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
+    });
+}
+else
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
-});
+    Console.WriteLine("Mode production activé");
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
+    });
 }
 
 // Activer CORS avant les autres middlewares
