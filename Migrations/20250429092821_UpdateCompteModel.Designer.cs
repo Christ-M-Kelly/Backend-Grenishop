@@ -4,6 +4,7 @@ using BackendGrenishop.DbContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BackendGrenishop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250429092821_UpdateCompteModel")]
+    partial class UpdateCompteModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,8 +38,7 @@ namespace BackendGrenishop.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MotDePasseHash")
                         .IsRequired()
@@ -44,13 +46,11 @@ namespace BackendGrenishop.Migrations
 
                     b.Property<string>("Nom")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Prenom")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
+                        .HasColumnType("nvarchar(max)")
                         .HasAnnotation("Relational:JsonPropertyName", "Prénom");
 
                     b.HasKey("id_compte");
@@ -68,8 +68,7 @@ namespace BackendGrenishop.Migrations
 
                     b.Property<string>("Nom_Entreprise")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("EntrepriseID");
 
@@ -89,13 +88,11 @@ namespace BackendGrenishop.Migrations
 
                     b.Property<string>("Etat")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Nom")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Nombre_Neuf")
                         .HasColumnType("int");
@@ -105,11 +102,11 @@ namespace BackendGrenishop.Migrations
 
                     b.Property<decimal>("Prix_Neuf")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<decimal>("Prix_Occasion")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(18,2)");
+                        .HasColumnType("decimal(10,2)");
 
                     b.HasKey("ProduitID");
 
@@ -121,17 +118,12 @@ namespace BackendGrenishop.Migrations
             modelBuilder.Entity("BackendGrenishop.Modeles.Produit", b =>
                 {
                     b.HasOne("BackendGrenishop.Modeles.Entreprise", "Entreprise")
-                        .WithMany("Produits")
+                        .WithMany()
                         .HasForeignKey("EntrepriseID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Entreprise");
-                });
-
-            modelBuilder.Entity("BackendGrenishop.Modeles.Entreprise", b =>
-                {
-                    b.Navigation("Produits");
                 });
 #pragma warning restore 612, 618
         }

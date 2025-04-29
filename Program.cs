@@ -22,10 +22,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy",
         builder => builder
-            .WithOrigins("http://localhost:3000") // <- ton frontend local
-                   .AllowAnyMethod()
-                   .AllowAnyHeader()
-            .AllowCredentials());
+            .WithOrigins("http://169.254.46.247:3000")
+            .AllowAnyMethod()
+            .AllowAnyHeader());
 });
 
 builder.Services.AddControllers();
@@ -33,7 +32,20 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
     Console.WriteLine($"Tentative de connexion à la base de données avec la chaîne : {connectionString}");
-    options.UseSqlServer(connectionString);
+    try
+    {
+        options.UseSqlServer(connectionString);
+        Console.WriteLine("Configuration de la base de données réussie");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Erreur lors de la configuration de la base de données : {ex.Message}");
+        Console.WriteLine($"Stack trace : {ex.StackTrace}");
+        if (ex.InnerException != null)
+        {
+            Console.WriteLine($"Erreur interne : {ex.InnerException.Message}");
+        }
+    }
 });
 
 var app = builder.Build();
