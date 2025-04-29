@@ -93,9 +93,16 @@ namespace BackendGrenishop.Controllers
     // Modèle pour Inscription
     public class InscriptionModel
     {
+        [JsonPropertyName("nom")]
         public required string Nom { get; set; }
+
+        [JsonPropertyName("prenom")]
         public required string Prenom { get; set; }
+
+        [JsonPropertyName("email")]
         public required string Email { get; set; }
+
+        [JsonPropertyName("motDePasse")]
         public required string MotDePasse { get; set; }
     }
 
