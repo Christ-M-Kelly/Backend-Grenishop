@@ -53,6 +53,7 @@ var app = builder.Build();
 // Ajouter des logs pour le débogage
 Console.WriteLine("Environnement : " + app.Environment.EnvironmentName);
 Console.WriteLine("URL de l'application : " + builder.Configuration["ASPNETCORE_URLS"]);
+Console.WriteLine("Chaîne de connexion : " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
