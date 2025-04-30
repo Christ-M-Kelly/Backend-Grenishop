@@ -11,8 +11,8 @@ public class Commande
     public int id_commande { get; set; }
 
     [Required]
-    [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
-    public DateTime date_commande { get; set; }
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public DateTime date_commande { get; set; } = DateTime.UtcNow;
 
     public DateTime? date_reception { get; set; }
 
@@ -25,6 +25,10 @@ public class Commande
     [StringLength(200)]
     [Column(TypeName = "varchar(200)")]
     public required string adresse_livraison { get; set; }
+
+    [Required]
+    [Column(TypeName = "decimal(18,2)")]
+    public required decimal prix_total { get; set; }
 
     [ForeignKey("Compte")]
     public int id_compte { get; set; }

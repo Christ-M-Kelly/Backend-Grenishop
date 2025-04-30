@@ -18,29 +18,63 @@ public class ProduitController : ControllerBase
 
     // GET: api/Produit
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Produit>>> GetProduits()
+    public async Task<ActionResult<IEnumerable<object>>> GetProduits()
     {
-        return await _context.Produits
-            .Include(p => p.Modele)
-            .Include(p => p.Commande)
+        var query = @"
+            SELECT 
+                p.id_produit,
+                p.Nom AS nom_produit,
+                p.Etat,
+                m.nom_modele,
+                m.prix_neuf,
+                m.prix_occasion,
+                mar.Nom AS nom_marque
+            FROM 
+                Produits p
+            JOIN 
+                Modele m ON p.id_modele = m.id_modele
+            JOIN 
+                Marque mar ON m.id_marque = mar.id_marque";
+
+        var produits = await _context.Database
+            .SqlQueryRaw<ProduitDetailDto>(query)
             .ToListAsync();
+
+        return Ok(produits);
     }
 
     // GET: api/Produit/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<Produit>> GetProduit(int id)
+    public async Task<ActionResult<object>> GetProduit(int id)
     {
-        var produit = await _context.Produits
-            .Include(p => p.Modele)
-            .Include(p => p.Commande)
-            .FirstOrDefaultAsync(p => p.id_produit == id);
+        var query = @"
+            SELECT 
+                p.id_produit,
+                p.Nom AS nom_produit,
+                p.Etat,
+                m.nom_modele,
+                m.prix_neuf,
+                m.prix_occasion,
+                mar.Nom AS nom_marque
+            FROM 
+                Produits p
+            JOIN 
+                Modele m ON p.id_modele = m.id_modele
+            JOIN 
+                Marque mar ON m.id_marque = mar.id_marque
+            WHERE 
+                p.id_produit = {0}";
+
+        var produit = await _context.Database
+            .SqlQueryRaw<ProduitDetailDto>(query, id)
+            .FirstOrDefaultAsync();
 
         if (produit == null)
         {
             return NotFound();
         }
 
-        return produit;
+        return Ok(produit);
     }
 
     // POST: api/Produit
@@ -103,4 +137,15 @@ public class ProduitController : ControllerBase
     {
         return _context.Produits.Any(e => e.id_produit == id);
     }
+}
+
+public class ProduitDetailDto
+{
+    public int id_produit { get; set; }
+    public string nom_produit { get; set; } = string.Empty;
+    public string Etat { get; set; } = string.Empty;
+    public string nom_modele { get; set; } = string.Empty;
+    public decimal prix_neuf { get; set; }
+    public decimal prix_occasion { get; set; }
+    public string nom_marque { get; set; } = string.Empty;
 } 

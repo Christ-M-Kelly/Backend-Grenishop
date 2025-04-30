@@ -41,7 +41,6 @@ public class Modele
     public int id_marque { get; set; }
 
     // Navigation properties
-    [JsonIgnore]
     public virtual Marque? Marque { get; set; }
     [JsonIgnore]
     public virtual ICollection<Produit>? Produits { get; set; }

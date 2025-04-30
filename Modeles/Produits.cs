@@ -29,6 +29,5 @@ public class Produit
     // Navigation properties
     [JsonIgnore]
     public virtual Commande? Commande { get; set; }
-    [JsonIgnore]
     public virtual Modele? Modele { get; set; }
 } 
