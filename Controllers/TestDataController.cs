@@ -75,16 +75,51 @@ public class TestDataController : ControllerBase
         try
         {
             // Vérifier si des données existent déjà
-            if (await _context.Entreprises.AnyAsync())
+            if (await _context.Marque.AnyAsync())
             {
                 return BadRequest("Des données existent déjà dans la base de données.");
             }
 
-            // Créer des entreprises
-            var entreprise1 = new Entreprise { Nom_Entreprise = "Grenishop" };
-            var entreprise2 = new Entreprise { Nom_Entreprise = "TechShop" };
+            // Créer des marques
+            var marque1 = new Marque { Nom = "Grenishop" };
+            var marque2 = new Marque { Nom = "TechShop" };
 
-            _context.Entreprises.AddRange(entreprise1, entreprise2);
+            _context.Marque.AddRange(marque1, marque2);
+            await _context.SaveChangesAsync();
+
+            // Créer des modèles
+            var modeles = new List<Modele>
+            {
+                new Modele
+                {
+                    nom_modele = "iPhone 13",
+                    prix_neuf = 999.99m,
+                    prix_occasion = 799.99m,
+                    nbr_neuf = 10,
+                    nbr_occasion = 5,
+                    id_marque = marque1.id_marque
+                },
+                new Modele
+                {
+                    nom_modele = "Samsung Galaxy S21",
+                    prix_neuf = 899.99m,
+                    prix_occasion = 699.99m,
+                    nbr_neuf = 8,
+                    nbr_occasion = 3,
+                    id_marque = marque1.id_marque
+                },
+                new Modele
+                {
+                    nom_modele = "MacBook Pro",
+                    prix_neuf = 1299.99m,
+                    prix_occasion = 999.99m,
+                    nbr_neuf = 5,
+                    nbr_occasion = 2,
+                    id_marque = marque2.id_marque
+                }
+            };
+
+            _context.Modele.AddRange(modeles);
             await _context.SaveChangesAsync();
 
             // Créer des produits
@@ -92,33 +127,39 @@ public class TestDataController : ControllerBase
             {
                 new Produit
                 {
-                    Nom = "iPhone 13",
+                    Nom = "iPhone 13 Neuf",
                     Etat = "Neuf",
-                    EntrepriseID = entreprise1.EntrepriseID,
-                    Nombre_Neuf = 10,
-                    Nombre_Occasion = 5,
-                    Prix_Neuf = 999.99m,
-                    Prix_Occasion = 799.99m
+                    id_modele = modeles[0].id_modele
                 },
                 new Produit
                 {
-                    Nom = "Samsung Galaxy S21",
-                    Etat = "Neuf",
-                    EntrepriseID = entreprise1.EntrepriseID,
-                    Nombre_Neuf = 8,
-                    Nombre_Occasion = 3,
-                    Prix_Neuf = 899.99m,
-                    Prix_Occasion = 699.99m
+                    Nom = "iPhone 13 Occasion",
+                    Etat = "Occasion",
+                    id_modele = modeles[0].id_modele
                 },
                 new Produit
                 {
-                    Nom = "MacBook Pro",
+                    Nom = "Samsung Galaxy S21 Neuf",
                     Etat = "Neuf",
-                    EntrepriseID = entreprise2.EntrepriseID,
-                    Nombre_Neuf = 5,
-                    Nombre_Occasion = 2,
-                    Prix_Neuf = 1299.99m,
-                    Prix_Occasion = 999.99m
+                    id_modele = modeles[1].id_modele
+                },
+                new Produit
+                {
+                    Nom = "Samsung Galaxy S21 Occasion",
+                    Etat = "Occasion",
+                    id_modele = modeles[1].id_modele
+                },
+                new Produit
+                {
+                    Nom = "MacBook Pro Neuf",
+                    Etat = "Neuf",
+                    id_modele = modeles[2].id_modele
+                },
+                new Produit
+                {
+                    Nom = "MacBook Pro Occasion",
+                    Etat = "Occasion",
+                    id_modele = modeles[2].id_modele
                 }
             };
 

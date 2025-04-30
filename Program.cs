@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using BackendGrenishop.DbContext;
 using BackendGrenishop.Modeles;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,12 +23,28 @@ builder.Services.AddSwaggerGen(c =>
 // Configuration CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("CorsPolicy",
-        builder => builder
-            .WithOrigins("http://169.254.46.247:3000", "http://localhost:3000")
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
 });
+
+// Configuration de l'authentification JWT
+var jwtKey = "MaCléUltraSecrèteEtLongue123456789!";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateIssuer = false,
+            ValidateAudience = false
+        };
+    });
 
 builder.Services.AddControllers();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -75,7 +94,7 @@ else
 }
 
 // Activer CORS avant les autres middlewares
-app.UseCors("CorsPolicy");
+app.UseCors("AllowAll");
 
 // Désactiver la redirection HTTPS
 // app.UseHttpsRedirection();
@@ -137,6 +156,10 @@ app.MapControllers();
 
 // Route par défaut
 app.MapGet("/", () => "Bienvenue sur l'API Grenishop!");
+
+// Ajouter l'authentification au pipeline
+app.UseAuthentication();
+app.UseAuthorization();
 
 Console.WriteLine("Application démarrée. Appuyez sur Ctrl+C pour arrêter.");
 app.Run();
