@@ -9,6 +9,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BackendGrenishop.Controllers
 {
@@ -110,29 +111,43 @@ namespace BackendGrenishop.Controllers
         [HttpPost("connexion")]
         public async Task<IActionResult> Connexion([FromBody] ConnexionModel model)
         {
+            Console.WriteLine("Tentative de connexion avec l'email: " + model.Email);
+            
             if (!ModelState.IsValid)
+            {
+                Console.WriteLine("Modèle invalide");
                 return BadRequest(ModelState);
+            }
 
             var compte = await _context.Comptes.FirstOrDefaultAsync(c => c.Email == model.Email);
+            Console.WriteLine("Compte trouvé: " + (compte != null));
 
             if (compte == null || !VerifyPassword(model.MotDePasse, compte.MotDePasse))
+            {
+                Console.WriteLine("Email ou mot de passe incorrect");
                 return Unauthorized(new { message = "Email ou mot de passe incorrect" });
+            }
 
             // Générer le JWT
             var token = GenerateJwtToken(compte);
+            Console.WriteLine("Token généré avec succès");
 
-            return Ok(new
+            var response = new
             {
                 message = "Connexion réussie",
                 token = token,
                 compte = new
                 {
-                    id = compte.id_compte,
-                    nom = compte.Nom,
-                    prenom = compte.Prenom,
-                    email = compte.Email
+                    id_compte = compte.id_compte,
+                    Nom = compte.Nom,
+                    Prenom = compte.Prenom,
+                    Email = compte.Email,
+                    date_inscription = compte.date_inscription.ToString("o")
                 }
-            });
+            };
+
+            Console.WriteLine("Réponse de connexion: " + System.Text.Json.JsonSerializer.Serialize(response));
+            return Ok(response);
         }
 
         private string GenerateJwtToken(Compte compte)
@@ -162,6 +177,52 @@ namespace BackendGrenishop.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // Récupération du profil
+        [HttpGet("profil")]
+        [Authorize]
+        public async Task<IActionResult> GetProfil()
+        {
+            try
+            {
+                Console.WriteLine("Tentative de récupération du profil...");
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Console.WriteLine($"ID de l'utilisateur: {userId}");
+                
+                if (string.IsNullOrEmpty(userId))
+                {
+                    Console.WriteLine("ID utilisateur non trouvé");
+                    return Unauthorized();
+                }
+
+                var compte = await _context.Comptes
+                    .FirstOrDefaultAsync(c => c.id_compte == int.Parse(userId));
+
+                if (compte == null)
+                {
+                    Console.WriteLine("Compte non trouvé");
+                    return NotFound();
+                }
+
+                var response = new
+                {
+                    id_compte = compte.id_compte,
+                    Nom = compte.Nom,
+                    Prenom = compte.Prenom,
+                    Email = compte.Email,
+                    date_inscription = compte.date_inscription.ToString("o")
+                };
+
+                Console.WriteLine("Réponse du profil: " + System.Text.Json.JsonSerializer.Serialize(response));
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erreur lors de la récupération du profil: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return StatusCode(500, new { message = "Une erreur est survenue lors de la récupération du profil" });
+            }
         }
     }
 
