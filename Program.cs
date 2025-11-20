@@ -1,153 +1,253 @@
 using Microsoft.EntityFrameworkCore;
-using BackendGrenishop.DbContext;
-using BackendGrenishop.Modeles;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
+using BackendGrenishop.DbContext;
+using BackendGrenishop.Models;
+using BackendGrenishop.Common.Middleware;
+using BackendGrenishop.Common.Helpers;
+using BackendGrenishop.Services.Interfaces;
+using BackendGrenishop.Services.Implementations;
+using BackendGrenishop.Repositories.Interfaces;
+using BackendGrenishop.Repositories.Implementations;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// ===== Services Configuration =====
+
+// Add controllers
+builder.Services.AddControllers();
+
+// Add API Explorer and Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Grenishop API",
         Version = "v1",
-        Description = "API pour la gestion des entreprises et des produits"
+        Description = "API pour la gestion d'une boutique en ligne avec authentification JWT",
+        Contact = new OpenApiContact
+        {
+            Name = "Grenishop Team",
+            Email = "contact@grenishop.com"
+        }
+    });
+
+    // Configure JWT authentication in Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 });
 
-// Configuration CORS
+// Configure CORS
+var allowedOrigins = builder.Environment.IsDevelopment()
+    ? builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:3000" }
+    : new[] { builder.Configuration["Urls:BaseUrl"] ?? "https://grenishop-agdfdkhbcpf8erfv.francecentral-01.azurewebsites.net" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.WithOrigins("http://localhost:3000")
-                   .AllowAnyMethod()
-                   .AllowAnyHeader()
-                   .AllowCredentials();
-        });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
 });
 
-// Configuration de l'authentification JWT
-var jwtKey = "MaCléUltraSecrèteEtLongue123456789!";
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ValidateIssuer = false,
-            ValidateAudience = false
-        };
-    });
-
-builder.Services.AddControllers();
+// Configure Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    Console.WriteLine($"Tentative de connexion à la base de données avec la chaîne : {connectionString}");
-    try
-    {
-        options.UseSqlServer(connectionString);
-        Console.WriteLine("Configuration de la base de données réussie");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Erreur lors de la configuration de la base de données : {ex.Message}");
-        Console.WriteLine($"Stack trace : {ex.StackTrace}");
-        if (ex.InnerException != null)
-        {
-            Console.WriteLine($"Erreur interne : {ex.InnerException.Message}");
-        }
-    }
+    options.UseSqlServer(connectionString);
 });
+
+// Configure Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    // Password settings
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 6;
+
+    // User settings
+    options.User.RequireUniqueEmail = true;
+
+    // Sign in settings
+    options.SignIn.RequireConfirmedEmail = false;
+    options.SignIn.RequireConfirmedPhoneNumber = false;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
+
+// Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:SecretKey"] 
+    ?? throw new InvalidOperationException("JWT Secret Key is not configured");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ValidateIssuer = !string.IsNullOrEmpty(builder.Configuration["Jwt:Issuer"]),
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidateAudience = !string.IsNullOrEmpty(builder.Configuration["Jwt:Audience"]),
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+// Configure Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.Identity?.Name ?? context.Request.Headers.Host.ToString(),
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 100,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+    
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        await context.HttpContext.Response.WriteAsync("Trop de requêtes. Veuillez réessayer plus tard.", token);
+    };
+});
+
+// Register Helpers
+builder.Services.AddScoped<JwtHelper>();
+
+// Register Repositories
+builder.Services.AddScoped<ICommandeRepository, CommandeRepository>();
+builder.Services.AddScoped<IProduitRepository, ProduitRepository>();
+builder.Services.AddScoped<IMarqueRepository, MarqueRepository>();
+builder.Services.AddScoped<IModeleRepository, ModeleRepository>();
+
+// Register Services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICommandeService, CommandeService>();
+builder.Services.AddScoped<IProduitService, ProduitService>();
+builder.Services.AddScoped<IMarqueService, MarqueService>();
+builder.Services.AddScoped<IModeleService, ModeleService>();
 
 var app = builder.Build();
 
-// Ajouter des logs pour le débogage
-Console.WriteLine("Environnement : " + app.Environment.EnvironmentName);
-Console.WriteLine("URL de l'application : " + builder.Configuration["ASPNETCORE_URLS"]);
+// ===== Middleware Pipeline =====
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    Console.WriteLine("Mode développement activé");
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
-    });
-}
-else
-{
-    Console.WriteLine("Mode production activé");
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
-    });
-}
+// Exception handling middleware (first in pipeline)
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Activer CORS avant les autres middlewares
+// Configure Swagger (available in all environments)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Grenishop API V1");
+    c.RoutePrefix = "swagger";
+});
+
+// CORS
 app.UseCors("AllowAll");
 
-// Désactiver la redirection HTTPS
-// app.UseHttpsRedirection();
+// Rate Limiting
+app.UseRateLimiter();
 
-// Appliquer les migrations automatiquement
+// Authentication & Authorization (BEFORE MapControllers)
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Map Controllers
+app.MapControllers();
+
+// Default route
+app.MapGet("/", () => new
+{
+    message = "Bienvenue sur l'API Grenishop!",
+    version = "2.0",
+    documentation = "/swagger"
+});
+
+// Health check endpoint
+app.MapGet("/health", () => new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow
+});
+
+// ===== Database Migration =====
+
 try
 {
     using (var scope = app.Services.CreateScope())
     {
         var services = scope.ServiceProvider;
         var context = services.GetRequiredService<ApplicationDbContext>();
-        Console.WriteLine("Tentative d'application des migrations...");
-        
-        // Vérifier les migrations en attente
-        var pendingMigrations = context.Database.GetPendingMigrations();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+
+        logger.LogInformation("Checking for pending migrations...");
+
+        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
         if (pendingMigrations.Any())
         {
-            Console.WriteLine($"Migrations en attente : {string.Join(", ", pendingMigrations)}");
-            context.Database.Migrate();
-            Console.WriteLine("Migrations appliquées avec succès.");
+            logger.LogInformation("Applying {Count} pending migrations: {Migrations}",
+                pendingMigrations.Count(),
+                string.Join(", ", pendingMigrations));
+
+            await context.Database.MigrateAsync();
+            logger.LogInformation("Migrations applied successfully");
         }
         else
         {
-            Console.WriteLine("Aucune migration en attente.");
+            logger.LogInformation("No pending migrations");
         }
     }
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Erreur lors de l'application des migrations : {ex.Message}");
-    Console.WriteLine($"Stack trace : {ex.StackTrace}");
-    if (ex.InnerException != null)
-    {
-        Console.WriteLine($"Erreur interne : {ex.InnerException.Message}");
-    }
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "An error occurred while migrating the database");
 }
 
+// ===== Start Application =====
 
+app.Logger.LogInformation("Application starting...");
+app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+app.Logger.LogInformation("Swagger UI available at: /swagger");
 
-app.MapControllers();
-
-// Route par défaut
-app.MapGet("/", () => "Bienvenue sur l'API Grenishop!");
-
-// Ajouter l'authentification au pipeline
-app.UseAuthentication();
-app.UseAuthorization();
-
-Console.WriteLine("Application démarrée. Appuyez sur Ctrl+C pour arrêter.");
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

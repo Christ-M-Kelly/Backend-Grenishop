@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using BackendGrenishop.Modeles;
+using BackendGrenishop.Models;
 
 namespace BackendGrenishop.DbContext;
 
-public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
@@ -12,12 +14,15 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     public DbSet<Marque> Marque { get; set; }
     public DbSet<Modele> Modele { get; set; }
     public DbSet<Produit> Produits { get; set; }
-    public DbSet<Compte> Comptes { get; set; }
     public DbSet<Commande> Commandes { get; set; }
     public DbSet<ListeDeSouhaits> ListeDeSouhaits { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Call base method to configure Identity tables
+        base.OnModelCreating(modelBuilder);
+
+        // Configure decimal precision for Modele
         modelBuilder.Entity<Modele>()
             .Property(p => p.prix_neuf)
             .HasPrecision(10, 2);
@@ -26,10 +31,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
             .Property(p => p.prix_occasion)
             .HasPrecision(10, 2);
 
-        modelBuilder.Entity<Compte>()
-            .HasIndex(c => c.Email)
-            .IsUnique();
-
+        // Configure indexes
         modelBuilder.Entity<Marque>()
             .HasIndex(m => m.Nom)
             .IsUnique();
@@ -46,6 +48,7 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Commande>()
             .HasIndex(c => c.date_commande);
 
+        // Configure relationships
         modelBuilder.Entity<Marque>()
             .HasMany(m => m.Modeles)
             .WithOne(m => m.Marque)
@@ -61,14 +64,17 @@ public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
             .WithOne(l => l.Modele)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Compte>()
-            .HasMany(c => c.Commandes)
-            .WithOne(c => c.Compte)
+        // ApplicationUser relationships
+        modelBuilder.Entity<ApplicationUser>()
+            .HasMany(u => u.Commandes)
+            .WithOne(c => c.ApplicationUser)
+            .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<Compte>()
-            .HasMany(c => c.ListeDeSouhaits)
-            .WithOne(l => l.Compte)
+        modelBuilder.Entity<ApplicationUser>()
+            .HasMany(u => u.ListeDeSouhaits)
+            .WithOne(l => l.ApplicationUser)
+            .HasForeignKey(l => l.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<Commande>()

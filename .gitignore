@@ -21,3 +21,8 @@ project.lock.json
 *.pyc
 nupkg/
 **/Properties/launchSettings.json
+
+# Sensitive configuration files
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json

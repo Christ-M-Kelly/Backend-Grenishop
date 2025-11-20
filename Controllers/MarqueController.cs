@@ -1,100 +1,97 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BackendGrenishop.DbContext;
-using BackendGrenishop.Modeles;
+using BackendGrenishop.Services.Interfaces;
 
 namespace BackendGrenishop.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class MarqueController : ControllerBase
+public class MarquesController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IMarqueService _marqueService;
+    private readonly ILogger<MarquesController> _logger;
 
-    public MarqueController(ApplicationDbContext context)
+    public MarquesController(IMarqueService marqueService, ILogger<MarquesController> logger)
     {
-        _context = context;
+        _marqueService = marqueService;
+        _logger = logger;
     }
 
-    // GET: api/Marque
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Marque>>> GetMarques()
+    public async Task<IActionResult> GetMarques([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        return await _context.Marque.ToListAsync();
+        var result = await _marqueService.GetMarquesAsync(page, pageSize);
+        return Ok(result);
     }
 
-    // GET: api/Marque/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<Marque>> GetMarque(int id)
+    public async Task<IActionResult> GetMarque(int id)
     {
-        var marque = await _context.Marque.FindAsync(id);
-
+        var marque = await _marqueService.GetMarqueByIdAsync(id);
+        
         if (marque == null)
         {
-            return NotFound();
+            return NotFound(new { message = "Marque non trouvée" });
         }
 
-        return marque;
+        return Ok(marque);
     }
 
-    // POST: api/Marque
     [HttpPost]
-    public async Task<ActionResult<Marque>> PostMarque(Marque marque)
+    public async Task<IActionResult> CreateMarque([FromBody] CreateMarqueDto dto)
     {
-        _context.Marque.Add(marque);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetMarque), new { id = marque.id_marque }, marque);
-    }
-
-    // PUT: api/Marque/5
-    [HttpPut("{id}")]
-    public async Task<IActionResult> PutMarque(int id, Marque marque)
-    {
-        if (id != marque.id_marque)
+        if (!ModelState.IsValid)
         {
-            return BadRequest();
+            return BadRequest(ModelState);
         }
-
-        _context.Entry(marque).State = EntityState.Modified;
 
         try
         {
-            await _context.SaveChangesAsync();
+            var marque = await _marqueService.CreateMarqueAsync(dto.Nom);
+            return CreatedAtAction(nameof(GetMarque), new { id = marque.id_marque }, marque);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex)
         {
-            if (!MarqueExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            _logger.LogError(ex, "Error creating marque");
+            throw;
         }
-
-        return NoContent();
     }
 
-    // DELETE: api/Marque/5
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateMarque(int id, [FromBody] CreateMarqueDto dto)
+    {
+        var updated = await _marqueService.UpdateMarqueAsync(id, dto.Nom);
+        
+        if (!updated)
+        {
+            return NotFound(new { message = "Marque non trouvée" });
+        }
+
+        return Ok(new { message = "Marque mise à jour avec succès" });
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteMarque(int id)
     {
-        var marque = await _context.Marque.FindAsync(id);
-        if (marque == null)
+        try
         {
-            return NotFound();
+            var deleted = await _marqueService.DeleteMarqueAsync(id);
+            
+            if (!deleted)
+            {
+                return NotFound(new { message = "Marque non trouvée" });
+            }
+
+            return NoContent();
         }
-
-        _context.Marque.Remove(marque);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting marque {MarqueId}", id);
+            throw;
+        }
     }
+}
 
-    private bool MarqueExists(int id)
-    {
-        return _context.Marque.Any(e => e.id_marque == id);
-    }
+public class CreateMarqueDto
+{
+    public required string Nom { get; set; }
 }

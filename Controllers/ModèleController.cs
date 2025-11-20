@@ -1,104 +1,105 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BackendGrenishop.DbContext;
 using BackendGrenishop.Modeles;
+using BackendGrenishop.Services.Interfaces;
 
 namespace BackendGrenishop.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ModeleController : ControllerBase
+public class ModelesController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IModeleService _modeleService;
+    private readonly ILogger<ModelesController> _logger;
 
-    public ModeleController(ApplicationDbContext context)
+    public ModelesController(IModeleService modeleService, ILogger<ModelesController> logger)
     {
-        _context = context;
+        _modeleService = modeleService;
+        _logger = logger;
     }
 
-    // GET: api/Modele
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Modele>>> GetModeles()
+    public async Task<IActionResult> GetModeles([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        return await _context.Modele
-            .Include(m => m.Marque)
-            .ToListAsync();
+        var result = await _modeleService.GetModelesAsync(page, pageSize);
+        return Ok(result);
     }
 
-    // GET: api/Modele/5
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Modele>> GetModele(int id)
+    [HttpGet("by-marque/{marqueId}")]
+    public async Task<IActionResult> GetModelesByMarque(int marqueId)
     {
-        var modele = await _context.Modele
-            .Include(m => m.Marque)
-            .FirstOrDefaultAsync(m => m.id_modele == id);
+        var modeles = await _modeleService.GetModelesByMarqueAsync(marqueId);
+        return Ok(modeles);
+    }
 
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetModele(int id)
+    {
+        var modele = await _modeleService.GetModeleByIdAsync(id);
+        
         if (modele == null)
         {
-            return NotFound();
+            return NotFound(new { message = "Modèle non trouvé" });
         }
 
-        return modele;
+        return Ok(modele);
     }
 
-    // POST: api/Modele
     [HttpPost]
-    public async Task<ActionResult<Modele>> PostModele(Modele modele)
+    public async Task<IActionResult> CreateModele([FromBody] Modele modele)
     {
-        _context.Modele.Add(modele);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetModele), new { id = modele.id_modele }, modele);
-    }
-
-    // PUT: api/Modele/5
-    [HttpPut("{id}")]
-    public async Task<IActionResult> PutModele(int id, Modele modele)
-    {
-        if (id != modele.id_modele)
+        if (!ModelState.IsValid)
         {
-            return BadRequest();
+            return BadRequest(ModelState);
         }
-
-        _context.Entry(modele).State = EntityState.Modified;
 
         try
         {
-            await _context.SaveChangesAsync();
+            var created = await _modeleService.CreateModeleAsync(modele);
+            return CreatedAtAction(nameof(GetModele), new { id = created.id_modele }, created);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex)
         {
-            if (!ModeleExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            _logger.LogError(ex, "Error creating modele");
+            throw;
         }
-
-        return NoContent();
     }
 
-    // DELETE: api/Modele/5
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateModele(int id, [FromBody] Modele modele)
+    {
+        if (id != modele.id_modele)
+        {
+            return BadRequest(new { message = "L'ID ne correspond pas" });
+        }
+
+        var updated = await _modeleService.UpdateModeleAsync(modele);
+        
+        if (!updated)
+        {
+            return NotFound(new { message = "Modèle non trouvé" });
+        }
+
+        return Ok(new { message = "Modèle mis à jour avec succès" });
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteModele(int id)
     {
-        var modele = await _context.Modele.FindAsync(id);
-        if (modele == null)
+        try
         {
-            return NotFound();
+            var deleted = await _modeleService.DeleteModeleAsync(id);
+            
+            if (!deleted)
+            {
+                return NotFound(new { message = "Modèle non trouvé" });
+            }
+
+            return NoContent();
         }
-
-        _context.Modele.Remove(modele);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting modele {ModeleId}", id);
+            throw;
+        }
     }
-
-    private bool ModeleExists(int id)
-    {
-        return _context.Modele.Any(e => e.id_modele == id);
-    }
-} 
+}

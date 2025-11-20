@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using BackendGrenishop.Models;
 
 namespace BackendGrenishop.Modeles;
 
@@ -13,12 +14,16 @@ public class ListeDeSouhaits
     [ForeignKey("Modele")]
     public required int id_modele { get; set; }
 
-    [ForeignKey("Compte")]
-    public required int id_compte { get; set; }
+    // Foreign key for ApplicationUser (Identity)
+    [Required]
+    public required string UserId { get; set; }
 
     // Navigation properties
     [JsonIgnore]
     public virtual Modele? Modele { get; set; }
+    
     [JsonIgnore]
-    public virtual Compte? Compte { get; set; }
-} 
+    [ForeignKey("UserId")]
+    public virtual ApplicationUser? ApplicationUser { get; set; }
+}
+ 

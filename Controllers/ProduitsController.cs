@@ -1,151 +1,111 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BackendGrenishop.DbContext;
-using BackendGrenishop.Modeles;
+using BackendGrenishop.DTOs.Request;
+using BackendGrenishop.Services.Interfaces;
 
 namespace BackendGrenishop.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ProduitController : ControllerBase
+public class ProduitsController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IProduitService _produitService;
+    private readonly ILogger<ProduitsController> _logger;
 
-    public ProduitController(ApplicationDbContext context)
+    public ProduitsController(IProduitService produitService, ILogger<ProduitsController> logger)
     {
-        _context = context;
+        _produitService = produitService;
+        _logger = logger;
     }
 
-    // GET: api/Produit
+    /// <summary>
+    /// Get all produits with pagination
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetProduits()
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetProduits([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var query = @"
-            SELECT 
-                p.id_produit,
-                p.Nom AS nom_produit,
-                p.Etat,
-                m.nom_modele,
-                m.prix_neuf,
-                m.prix_occasion,
-                mar.Nom AS nom_marque
-            FROM 
-                Produits p
-            JOIN 
-                Modele m ON p.id_modele = m.id_modele
-            JOIN 
-                Marque mar ON m.id_marque = mar.id_marque";
+        var result = await _produitService.GetProduitsAsync(page, pageSize);
+        return Ok(result);
+    }
 
-        var produits = await _context.Database
-            .SqlQueryRaw<ProduitDetailDto>(query)
-            .ToListAsync();
-
+    /// <summary>
+    /// Get available produits (not in any commande)
+    /// </summary>
+    [HttpGet("available")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetProduitsAvailable()
+    {
+        var produits = await _produitService.GetProduitsAvailableAsync();
         return Ok(produits);
     }
 
-    // GET: api/Produit/5
+    /// <summary>
+    /// Get produit by ID
+    /// </summary>
     [HttpGet("{id}")]
-    public async Task<ActionResult<object>> GetProduit(int id)
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProduit(int id)
     {
-        var query = @"
-            SELECT 
-                p.id_produit,
-                p.Nom AS nom_produit,
-                p.Etat,
-                m.nom_modele,
-                m.prix_neuf,
-                m.prix_occasion,
-                mar.Nom AS nom_marque
-            FROM 
-                Produits p
-            JOIN 
-                Modele m ON p.id_modele = m.id_modele
-            JOIN 
-                Marque mar ON m.id_marque = mar.id_marque
-            WHERE 
-                p.id_produit = {0}";
-
-        var produit = await _context.Database
-            .SqlQueryRaw<ProduitDetailDto>(query, id)
-            .FirstOrDefaultAsync();
-
+        var produit = await _produitService.GetProduitByIdAsync(id);
+        
         if (produit == null)
         {
-            return NotFound();
+            return NotFound(new { message = "Produit non trouvé" });
         }
 
         return Ok(produit);
     }
 
-    // POST: api/Produit
+    /// <summary>
+    /// Create a new produit
+    /// </summary>
     [HttpPost]
-    public async Task<ActionResult<Produit>> PostProduit(Produit produit)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateProduit([FromBody] CreateProduitDto dto)
     {
-        _context.Produits.Add(produit);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetProduit), new { id = produit.id_produit }, produit);
-    }
-
-    // PUT: api/Produit/5
-    [HttpPut("{id}")]
-    public async Task<IActionResult> PutProduit(int id, Produit produit)
-    {
-        if (id != produit.id_produit)
+        if (!ModelState.IsValid)
         {
-            return BadRequest();
+            return BadRequest(ModelState);
         }
-
-        _context.Entry(produit).State = EntityState.Modified;
 
         try
         {
-            await _context.SaveChangesAsync();
+            var produit = await _produitService.CreateProduitAsync(dto);
+            return CreatedAtAction(nameof(GetProduit), new { id = produit.IdProduit }, produit);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex)
         {
-            if (!ProduitExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            _logger.LogError(ex, "Error creating produit");
+            throw; // Will be caught by ExceptionHandlingMiddleware
         }
-
-        return NoContent();
     }
 
-    // DELETE: api/Produit/5
+    /// <summary>
+    /// Delete a produit
+    /// </summary>
     [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteProduit(int id)
     {
-        var produit = await _context.Produits.FindAsync(id);
-        if (produit == null)
+        try
         {
-            return NotFound();
+            var deleted = await _produitService.DeleteProduitAsync(id);
+            
+            if (!deleted)
+            {
+                return NotFound(new { message = "Produit non trouvé" });
+            }
+
+            return NoContent();
         }
-
-        _context.Produits.Remove(produit);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-    }
-
-    private bool ProduitExists(int id)
-    {
-        return _context.Produits.Any(e => e.id_produit == id);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting produit {ProduitId}", id);
+            throw; // Will be caught by ExceptionHandlingMiddleware
+        }
     }
 }
-
-public class ProduitDetailDto
-{
-    public int id_produit { get; set; }
-    public string nom_produit { get; set; } = string.Empty;
-    public string Etat { get; set; } = string.Empty;
-    public string nom_modele { get; set; } = string.Empty;
-    public decimal prix_neuf { get; set; }
-    public decimal prix_occasion { get; set; }
-    public string nom_marque { get; set; } = string.Empty;
-} 
