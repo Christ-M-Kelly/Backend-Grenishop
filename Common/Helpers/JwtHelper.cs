@@ -17,8 +17,11 @@ public class JwtHelper
 
     public string GenerateToken(ApplicationUser user)
     {
-        var jwtKey = _configuration["Jwt:SecretKey"] 
-            ?? throw new InvalidOperationException("JWT Secret Key is not configured");
+        var jwtKey = _configuration["Jwt:SecretKey"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+        {
+            jwtKey = "GrenishopDemoKey_ForTestingOnly_MinThirtyTwoChars!";
+        }
         
         var issuer = _configuration["Jwt:Issuer"];
         var audience = _configuration["Jwt:Audience"];
@@ -50,8 +53,11 @@ public class JwtHelper
 
     public ClaimsPrincipal? ValidateToken(string token)
     {
-        var jwtKey = _configuration["Jwt:SecretKey"] 
-            ?? throw new InvalidOperationException("JWT Secret Key is not configured");
+        var jwtKey = _configuration["Jwt:SecretKey"];
+        if (string.IsNullOrWhiteSpace(jwtKey))
+        {
+            jwtKey = "GrenishopDemoKey_ForTestingOnly_MinThirtyTwoChars!";
+        }
 
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(jwtKey);

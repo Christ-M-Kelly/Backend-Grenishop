@@ -1,28 +1,105 @@
+# =========================
+# .NET / ASP.NET Core
+# =========================
+
+## Build results
 bin/
 obj/
+publish/
+out/
+
+## NuGet
+*.nupkg
+nupkg/
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+## Visual Studio
 .vs/
-.vscode/
-*.user
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+
+## Visual Studio Code
+.vscode/
+
+## JetBrains Rider / IntelliJ
+.idea/
+*.sln.iml
+
+## User preferences
 *.userprefs
+
+## Database
 *.dbmdl
 *.jfm
+*.mdf
+*.ldf
+
+## Publish profiles
 *.pfx
 *.publishsettings
+
+## Auto-generated code
 orleans.codegen.cs
-.vs/
-.vscode/
-*.swp
-*.*~
-project.lock.json
-.DS_Store
-*.pyc
-nupkg/
+
+## ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+## Properties
 **/Properties/launchSettings.json
 
-# Sensitive configuration files
+# =========================
+# Sensitive / Configuration
+# =========================
+
 appsettings.json
 appsettings.Development.json
 appsettings.Production.json
+appsettings.Staging.json
+
+# .NET User Secrets
+secrets.json
+
+# =========================
+# OS Files
+# =========================
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## Linux
+*~
+
+# =========================
+# Editor / IDE Temp Files
+# =========================
+
+*.swp
+*.swo
+*.*~
+*.bak
+*.tmp
+*.log
+
+# =========================
+# Misc
+# =========================
+
+*.pyc

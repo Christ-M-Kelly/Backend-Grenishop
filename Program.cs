@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using BackendGrenishop.DbContext;
 using BackendGrenishop.Models;
+using BackendGrenishop.Data;
 using BackendGrenishop.Common.Middleware;
 using BackendGrenishop.Common.Helpers;
 using BackendGrenishop.Services.Interfaces;
@@ -80,10 +81,19 @@ builder.Services.AddCors(options =>
 });
 
 // Configure Database
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var useInMemory = string.IsNullOrWhiteSpace(connectionString);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseSqlServer(connectionString);
+    if (useInMemory)
+    {
+        options.UseInMemoryDatabase("GrenishopDb");
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
 });
 
 // Configure Identity
@@ -107,8 +117,12 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // Configure JWT Authentication
-var jwtKey = builder.Configuration["Jwt:SecretKey"] 
-    ?? throw new InvalidOperationException("JWT Secret Key is not configured");
+var jwtKey = builder.Configuration["Jwt:SecretKey"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    // Default key for InMemory/demo mode — NOT for production
+    jwtKey = "GrenishopDemoKey_ForTestingOnly_MinThirtyTwoChars!";
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -210,7 +224,7 @@ app.MapGet("/health", () => new
     timestamp = DateTime.UtcNow
 });
 
-// ===== Database Migration =====
+// ===== Database Initialization =====
 
 try
 {
@@ -220,28 +234,38 @@ try
         var context = services.GetRequiredService<ApplicationDbContext>();
         var logger = services.GetRequiredService<ILogger<Program>>();
 
-        logger.LogInformation("Checking for pending migrations...");
-
-        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-        if (pendingMigrations.Any())
+        if (useInMemory)
         {
-            logger.LogInformation("Applying {Count} pending migrations: {Migrations}",
-                pendingMigrations.Count(),
-                string.Join(", ", pendingMigrations));
-
-            await context.Database.MigrateAsync();
-            logger.LogInformation("Migrations applied successfully");
+            logger.LogInformation("Using InMemory database (no SQL Server configured)");
+            context.Database.EnsureCreated();
+            await DataSeeder.SeedAsync(services);
         }
         else
         {
-            logger.LogInformation("No pending migrations");
+            logger.LogInformation("Using SQL Server database");
+            logger.LogInformation("Checking for pending migrations...");
+
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+            if (pendingMigrations.Any())
+            {
+                logger.LogInformation("Applying {Count} pending migrations: {Migrations}",
+                    pendingMigrations.Count(),
+                    string.Join(", ", pendingMigrations));
+
+                await context.Database.MigrateAsync();
+                logger.LogInformation("Migrations applied successfully");
+            }
+            else
+            {
+                logger.LogInformation("No pending migrations");
+            }
         }
     }
 }
 catch (Exception ex)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogError(ex, "An error occurred while migrating the database");
+    logger.LogError(ex, "An error occurred while initializing the database");
 }
 
 // ===== Start Application =====
